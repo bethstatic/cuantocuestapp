@@ -64,7 +64,7 @@
                 <div id="resultContainer" class="rounded-2xl p-6 text-center transition-all duration-300 bg-slate-100 text-slate-400">
                     <p class="text-sm font-medium mb-2 opacity-90">Ese producto cuesta</p>
                     <div id="timeNeeded" class="text-3xl font-bold mb-1">0 h</div>
-                    <p class="text-sm opacity-80 mt-2">de tu vida</p>
+                    <p class="text-sm opacity-80 mt-2">de trabajo</p>
                 </div>
             </section>
 
@@ -116,6 +116,25 @@
                             />
                         </div>
                     </div>
+
+                    <!-- Input Jornada Laboral -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1.5">Horas por día laboral</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400">
+                                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                                </svg>
+                            </div>
+                            <input
+                                type="text"
+                                inputmode="numeric"
+                                id="workDay"
+                                placeholder="Ej. 8"
+                                class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Resultado Hora -->
@@ -133,6 +152,7 @@
         // Referencias a elementos del DOM
         const inputSalary = document.getElementById('salary');
         const inputHours = document.getElementById('hours');
+        const inputWorkDay = document.getElementById('workDay');
         const inputPrice = document.getElementById('productPrice');
         
         const outputHourlyRate = document.getElementById('hourlyRate');
@@ -157,17 +177,18 @@
             }).format(value);
         };
 
-        // Formateador de tiempo avanzado
-        const formatTime = (totalHours) => {
+        // Formateador de tiempo avanzado basado en jornada laboral
+        const formatTime = (totalHours, hoursInMonth, hoursInDay) => {
             if (totalHours === 0) return '0 h';
             if (!isFinite(totalHours)) return 'Infinito';
 
-            const HOURS_IN_DAY = 24;
-            const DAYS_IN_MONTH = 31;
+            const HOURS_IN_DAY = hoursInDay > 0 ? hoursInDay : 8;
+            const HOURS_IN_MONTH = hoursInMonth > 0 ? hoursInMonth : (HOURS_IN_DAY * 20);
             const MONTHS_IN_YEAR = 12;
             
-            const HOURS_IN_MONTH = HOURS_IN_DAY * DAYS_IN_MONTH;
             const HOURS_IN_YEAR = HOURS_IN_MONTH * MONTHS_IN_YEAR;
+            // Calculamos cuántos días reales tiene tu mes de trabajo
+            const DAYS_IN_MONTH = Math.max(1, Math.floor(HOURS_IN_MONTH / HOURS_IN_DAY));
 
             let years = Math.floor(totalHours / HOURS_IN_YEAR);
             let remainingHours = totalHours % HOURS_IN_YEAR;
@@ -182,9 +203,9 @@
             let m = Math.round((remainingHours - h) * 60);
 
             if (m === 60) { m = 0; h += 1; }
-            if (h === HOURS_IN_DAY) { h = 0; days += 1; }
-            if (days === DAYS_IN_MONTH) { days = 0; months += 1; }
-            if (months === MONTHS_IN_YEAR) { months = 0; years += 1; }
+            if (h >= HOURS_IN_DAY) { h -= HOURS_IN_DAY; days += 1; }
+            if (days >= DAYS_IN_MONTH) { days -= DAYS_IN_MONTH; months += 1; }
+            if (months >= MONTHS_IN_YEAR) { months -= MONTHS_IN_YEAR; years += 1; }
 
             const units = [
                 { value: years, full: years === 1 ? 'año' : 'años', short: 'a' },
@@ -215,10 +236,12 @@
             // Guardar en localStorage
             localStorage.setItem('calc_salary', inputSalary.value.replace(/\./g, ''));
             localStorage.setItem('calc_hours', inputHours.value.replace(/\./g, ''));
+            localStorage.setItem('calc_workday', inputWorkDay.value.replace(/\./g, ''));
 
             // Cálculos matemáticos
             const numSalary = parseFloat(inputSalary.value.replace(/\./g, '')) || 0;
             const numHours = parseFloat(inputHours.value.replace(/\./g, '')) || 0;
+            const numWorkDay = parseFloat(inputWorkDay.value.replace(/\./g, '')) || 8; // Por defecto 8hs
             const numProductPrice = parseFloat(inputPrice.value.replace(/\./g, '')) || 0;
 
             const hourlyRate = numHours > 0 ? numSalary / numHours : 0;
@@ -240,7 +263,7 @@
             // Actualizar vista - Resultado Final
             if (timeNeeded > 0) {
                 resultContainer.className = 'rounded-2xl p-6 text-center transition-all duration-300 bg-emerald-500 text-white shadow-lg shadow-emerald-200';
-                outputTimeNeeded.textContent = formatTime(timeNeeded);
+                outputTimeNeeded.textContent = formatTime(timeNeeded, numHours, numWorkDay);
             } else {
                 resultContainer.className = 'rounded-2xl p-6 text-center transition-all duration-300 bg-slate-100 text-slate-400';
                 outputTimeNeeded.textContent = '0 h';
@@ -255,11 +278,13 @@
 
         inputSalary.addEventListener('input', handleInput);
         inputHours.addEventListener('input', handleInput);
+        inputWorkDay.addEventListener('input', handleInput);
         inputPrice.addEventListener('input', handleInput);
 
         // Inicializar con valores de localStorage (si existen)
         inputSalary.value = formatNumber(localStorage.getItem('calc_salary') || '');
         inputHours.value = formatNumber(localStorage.getItem('calc_hours') || '');
+        inputWorkDay.value = formatNumber(localStorage.getItem('calc_workday') || '');
         
         // Ejecutar cálculo inicial
         calculate();
